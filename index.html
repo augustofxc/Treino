@@ -140,12 +140,21 @@
   }
   .btn-add:active{transform: scale(0.99);}
 
-  /* Suggestions */
-  .suggest-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
-  .chip{
-    font-size:12px; background:var(--bg-card-raised); border:1px solid var(--line);
-    color:var(--ink-dim); padding:6px 10px; border-radius:20px; cursor:pointer;
+  /* Suggestions: autocomplete dropdown */
+  .field.exname{position:relative;}
+  #suggestWrap{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30;
+    background: var(--bg-card-raised); border:1px solid var(--line); border-radius:10px;
+    max-height:220px; overflow-y:auto; display:none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
   }
+  #suggestWrap.open{display:block;}
+  .suggest-item{
+    padding:11px 14px; font-size:14px; color:var(--ink); cursor:pointer;
+    border-bottom:1px solid var(--line);
+  }
+  .suggest-item:last-child{border-bottom:none;}
+  .suggest-item:active{background: var(--bg-card);}
 
   /* Log of today's sets */
   .section-label{
@@ -306,15 +315,15 @@
       <div class="field-row">
         <div class="field num">
           <label>Carga (kg)</label>
-          <input type="number" id="editLoad" inputmode="decimal" step="0.5">
+          <input type="number" id="editLoad" inputmode="decimal" step="0.5" min="0">
         </div>
         <div class="field num">
           <label>Reps</label>
-          <input type="number" id="editReps" inputmode="numeric">
+          <input type="number" id="editReps" inputmode="numeric" min="0">
         </div>
         <div class="field num">
           <label>Série Nº</label>
-          <input type="number" id="editSetNum" inputmode="numeric">
+          <input type="number" id="editSetNum" inputmode="numeric" min="1">
         </div>
       </div>
 
@@ -336,28 +345,28 @@
         <div class="field exname">
           <label>Exercício</label>
           <input type="text" id="inpExercise" placeholder="Ex: Supino reto" autocomplete="off">
+          <div id="suggestWrap"></div>
         </div>
       </div>
-      <div id="suggestWrap"></div>
       <div class="field-row" style="margin-top:10px;">
         <div class="field num">
           <label>Carga (kg)</label>
-          <input type="number" id="inpLoad" placeholder="0" inputmode="decimal" step="0.5">
+          <input type="number" id="inpLoad" placeholder="0" inputmode="decimal" step="0.5" min="0">
         </div>
         <div class="field num">
           <label>Reps</label>
-          <input type="number" id="inpReps" placeholder="0" inputmode="numeric">
+          <input type="number" id="inpReps" placeholder="0" inputmode="numeric" min="0">
         </div>
         <div class="field num">
           <label>Série Nº</label>
-          <input type="number" id="inpSetNum" placeholder="1" inputmode="numeric">
+          <input type="number" id="inpSetNum" placeholder="1" inputmode="numeric" min="1">
         </div>
       </div>
       <button class="btn-add" id="btnAddSet">+ Registrar série</button>
     </div>
 
     <div class="section-label">
-      <span>Hoje</span>
+      <span id="todaySectionLabel">Registrar</span>
       <span id="todayVolume"></span>
     </div>
     <div id="todayLog"></div>
@@ -474,10 +483,11 @@ function renderSessionBar(){
   }
 }
 async function startSession(){
-  activeSession = { startedAt: new Date().toISOString() };
+  activeSession = { id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), startedAt: new Date().toISOString() };
   await saveSession(activeSession);
   renderSessionBar();
   startTimerTick();
+  renderToday();
   showToast('Treino iniciado');
 }
 async function endSession(){
@@ -485,7 +495,14 @@ async function endSession(){
   await saveSession(null);
   clearInterval(sessionTimerInterval);
   renderSessionBar();
-  showToast('Treino finalizado');
+  renderToday();
+  // limpa o formulário para o próximo treino começar do zero
+  document.getElementById('inpExercise').value = '';
+  document.getElementById('inpLoad').value = '';
+  document.getElementById('inpReps').value = '';
+  document.getElementById('inpSetNum').value = '';
+  hideSuggestions();
+  showToast('Treino finalizado — registro salvo no histórico');
 }
 function startTimerTick(){
   clearInterval(sessionTimerInterval);
@@ -501,25 +518,64 @@ function updateTimerDisplay(){
   el.textContent = `${m}:${s}`;
 }
 
-// ---------- Suggestions (recent exercise names) ----------
+// ---------- Suggestions (autocomplete dropdown) ----------
+function getKnownExerciseNames(){
+  // most recently used first, deduplicated
+  const seen = new Set();
+  const names = [];
+  for(let i = allSets.length - 1; i >= 0; i--){
+    const n = allSets[i].exercise;
+    const key = n.toLowerCase();
+    if(!seen.has(key)){ seen.add(key); names.push(n); }
+  }
+  return names;
+}
+function normalize(str){
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 function renderSuggestions(){
-  const names = [...new Set(allSets.map(s=>s.exercise))].slice(-8).reverse();
+  // kept for compatibility with callers after data changes; dropdown content
+  // is computed live on input, so this just clears any stale dropdown.
+  hideSuggestions();
+}
+function hideSuggestions(){
   const wrap = document.getElementById('suggestWrap');
-  if(names.length === 0){ wrap.innerHTML=''; return; }
-  wrap.innerHTML = `<div class="suggest-row">${names.map(n=>`<span class="chip" data-name="${escapeHtml(n)}">${escapeHtml(n)}</span>`).join('')}</div>`;
-  wrap.querySelectorAll('.chip').forEach(chip=>{
-    chip.onclick = ()=>{
-      document.getElementById('inpExercise').value = chip.dataset.name;
-      const nextSetNum = computeNextSetNum(chip.dataset.name);
+  wrap.innerHTML = '';
+  wrap.classList.remove('open');
+}
+function showSuggestionsFor(query){
+  const wrap = document.getElementById('suggestWrap');
+  const q = normalize(query.trim());
+  const known = getKnownExerciseNames();
+
+  let matches;
+  if(q === ''){
+    matches = known.slice(0, 6); // recent exercises when field is empty/focused
+  } else {
+    matches = known.filter(n => normalize(n).includes(q)).slice(0, 6);
+  }
+
+  if(matches.length === 0){ hideSuggestions(); return; }
+
+  wrap.innerHTML = matches.map(n=>
+    `<div class="suggest-item" data-name="${escapeHtml(n)}">${escapeHtml(n)}</div>`
+  ).join('');
+  wrap.classList.add('open');
+
+  wrap.querySelectorAll('.suggest-item').forEach(item=>{
+    item.onclick = ()=>{
+      document.getElementById('inpExercise').value = item.dataset.name;
+      const nextSetNum = computeNextSetNum(item.dataset.name);
       document.getElementById('inpSetNum').value = nextSetNum;
+      hideSuggestions();
       document.getElementById('inpLoad').focus();
     };
   });
 }
 function computeNextSetNum(exerciseName){
-  const today = todayStr();
-  const todays = allSets.filter(s=> s.date===today && s.exercise.toLowerCase()===exerciseName.toLowerCase());
-  return todays.length + 1;
+  if(!activeSession) return 1;
+  const inSession = allSets.filter(s=> s.sessionId===activeSession.id && s.exercise.toLowerCase()===exerciseName.toLowerCase());
+  return inSession.length + 1;
 }
 function escapeHtml(str){
   return str.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -528,6 +584,17 @@ function escapeHtml(str){
 // ---------- Form / Add set ----------
 function bindForm(){
   const inpExercise = document.getElementById('inpExercise');
+  inpExercise.addEventListener('input', ()=>{
+    showSuggestionsFor(inpExercise.value);
+  });
+  inpExercise.addEventListener('focus', ()=>{
+    showSuggestionsFor(inpExercise.value);
+  });
+  document.addEventListener('click', (e)=>{
+    if(e.target !== inpExercise && !e.target.closest('#suggestWrap')){
+      hideSuggestions();
+    }
+  });
   inpExercise.addEventListener('blur', ()=>{
     const name = inpExercise.value.trim();
     if(name){
@@ -556,6 +623,14 @@ async function addSet(){
   if(reps === ''){ showToast('Informe as repetições'); document.getElementById('inpReps').focus(); return; }
   if(!setNum) setNum = computeNextSetNum(exercise);
 
+  // auto-start a session if the person just starts logging without tapping "Iniciar treino"
+  if(!activeSession){
+    activeSession = { id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), startedAt: new Date().toISOString() };
+    await saveSession(activeSession);
+    renderSessionBar();
+    startTimerTick();
+  }
+
   const entry = {
     id: 'set_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
     date: todayStr(),
@@ -563,7 +638,8 @@ async function addSet(){
     exercise,
     load: load === '' ? null : parseFloat(load),
     reps: parseInt(reps,10),
-    setNum: parseInt(setNum,10)
+    setNum: parseInt(setNum,10),
+    sessionId: activeSession.id
   };
 
   allSets.push(entry);
@@ -656,13 +732,22 @@ function bindEditModal(){
 
 // ---------- Render Today ----------
 function renderToday(){
-  const today = todayStr();
-  const todays = allSets.filter(s=>s.date===today);
   const log = document.getElementById('todayLog');
   const volEl = document.getElementById('todayVolume');
+  const sectionLabel = document.getElementById('todaySectionLabel');
+
+  if(!activeSession){
+    log.innerHTML = `<div class="empty-state">Nenhum treino em andamento.<br>Toque em "Iniciar treino" acima para começar a registrar.</div>`;
+    volEl.textContent = '';
+    if(sectionLabel) sectionLabel.textContent = 'Registrar';
+    return;
+  }
+
+  const todays = allSets.filter(s=> s.sessionId === activeSession.id);
+  if(sectionLabel) sectionLabel.textContent = 'Treino atual';
 
   if(todays.length === 0){
-    log.innerHTML = `<div class="empty-state">Nenhuma série registrada ainda hoje.<br>Adicione a primeira acima.</div>`;
+    log.innerHTML = `<div class="empty-state">Nenhuma série registrada ainda.<br>Adicione a primeira acima.</div>`;
     volEl.textContent = '';
     return;
   }
@@ -717,8 +802,11 @@ function renderToday(){
 // ---------- Render History ----------
 function renderHistory(){
   const log = document.getElementById('historyLog');
-  const today = todayStr();
-  const pastSets = allSets.filter(s=>s.date !== today);
+  const activeId = activeSession ? activeSession.id : null;
+  // Shows every set that doesn't belong to the currently active session
+  // (those live in "Registrar" instead). When there's no active session,
+  // everything shows here, including legacy sets without a sessionId.
+  const pastSets = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
 
   if(pastSets.length === 0){
     log.innerHTML = `<div class="empty-state">Sem treinos anteriores registrados.</div>`;
