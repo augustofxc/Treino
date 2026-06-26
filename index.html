@@ -214,18 +214,55 @@
   .btn-cancel-edit{background:none; border:1px solid var(--line); color: var(--ink-dim);}
 
   /* History: day cards (list view) */
+  .history-toolbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .history-toolbar h2{
+    font-family: Georgia, serif; font-size:18px; font-weight:700; color: var(--ink); margin:0;
+  }
+  .btn-trash{
+    background:none; border:1px solid var(--line); color: var(--ink-dim);
+    font-size:15px; padding:8px 11px; border-radius:8px; cursor:pointer;
+  }
+  .btn-trash.active{ border-color: var(--danger); color: var(--danger); }
+
   .day-card{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
     background: var(--bg-card); border:1px solid var(--line); border-radius: var(--radius);
     padding: 16px; margin-bottom:10px; cursor:pointer;
   }
   .day-card:active{ background: var(--bg-card-raised); }
+  .day-card.selected{ border-color: var(--danger); background: rgba(255,59,92,0.08); }
+  .day-card-checkbox{
+    width:20px; height:20px; border-radius:50%; border:2px solid var(--line);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; color: transparent; transition: all 0.15s;
+  }
+  .day-card.selected .day-card-checkbox{
+    background: var(--danger); border-color: var(--danger); color:#0a0a0a;
+  }
   .day-card-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
   .day-card-date{font-family: Georgia, serif; font-size:16px; font-weight:700; color:var(--ink); text-transform:capitalize;}
   .day-card-meta{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px;}
   .day-card-right{display:flex; align-items:center; gap:10px; flex-shrink:0;}
   .day-card-vol{font-size:13px; color: var(--accent); font-weight:700; text-shadow: 0 0 6px rgba(57,255,106,0.25); white-space:nowrap;}
   .day-card-arrow{color: var(--ink-dim); font-size:18px;}
+
+  .delete-bar{
+    position:fixed; bottom:64px; left:0; right:0; z-index:40;
+    background: var(--bg-card-raised); border-top:1px solid var(--line);
+    display:none; align-items:center; justify-content:space-between;
+    padding: 12px 16px; max-width:560px; margin:0 auto;
+  }
+  .delete-bar.show{display:flex;}
+  .delete-bar .count{font-size:13px; color: var(--ink-dim);}
+  .delete-bar button{
+    font-family:inherit; font-size:12px; text-transform:uppercase; letter-spacing:0.8px;
+    padding:10px 16px; border-radius:8px; cursor:pointer;
+  }
+  .btn-confirm-delete{ background: var(--danger); border:none; color:#0a0a0a; font-weight:700; }
+  .btn-cancel-delete{ background:none; border:1px solid var(--line); color: var(--ink-dim); margin-right:8px; }
 
   /* History: day detail view */
   .day-detail-header{
@@ -393,6 +430,10 @@
   <!-- HISTÓRICO VIEW -->
   <div class="view" id="view-historico">
     <div id="historyListWrap">
+      <div class="history-toolbar">
+        <h2>Treinos</h2>
+        <button class="btn-trash" id="btnToggleDeleteMode">🗑</button>
+      </div>
       <div id="historyLog"></div>
     </div>
     <div id="historyDetailWrap" style="display:none;">
@@ -407,6 +448,14 @@
     </div>
   </div>
 
+</div>
+
+<div class="delete-bar" id="deleteBar">
+  <span class="count" id="deleteCount">0 selecionado(s)</span>
+  <div>
+    <button class="btn-cancel-delete" id="btnCancelDelete">Cancelar</button>
+    <button class="btn-confirm-delete" id="btnConfirmDelete">Excluir</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -483,6 +532,7 @@ async function init(){
   bindForm();
   bindBackupMenu();
   bindEditModal();
+  bindDeleteMode();
   if(activeSession) startTimerTick();
 
   // restore last used exercise name as convenience
@@ -842,6 +892,9 @@ function renderToday(){
 }
 
 // ---------- Render History ----------
+let deleteMode = false;
+let selectedDates = new Set();
+
 function renderHistory(){
   const log = document.getElementById('historyLog');
   const activeId = activeSession ? activeSession.id : null;
@@ -852,6 +905,7 @@ function renderHistory(){
 
   // always return to the list view when re-rendering history from scratch
   showHistoryList();
+  exitDeleteMode();
 
   if(pastSets.length === 0){
     log.innerHTML = `<div class="empty-state">Sem treinos anteriores registrados.</div>`;
@@ -868,21 +922,90 @@ function renderHistory(){
 
     return `
       <div class="day-card" data-date="${date}">
+        <div class="day-card-checkbox" style="display:${deleteMode ? 'flex' : 'none'};">✓</div>
         <div class="day-card-left">
           <div class="day-card-date">${fmtDateLabel(date)}</div>
           <div class="day-card-meta">${exerciseCount} exercício${exerciseCount!==1?'s':''} · ${setCount} série${setCount!==1?'s':''}</div>
         </div>
         <div class="day-card-right">
           ${dayVolume>0 ? `<span class="day-card-vol">${dayVolume.toLocaleString('pt-BR')} kg</span>` : ''}
-          <span class="day-card-arrow">›</span>
+          <span class="day-card-arrow" style="display:${deleteMode ? 'none' : 'inline'};">›</span>
         </div>
       </div>
     `;
   }).join('');
 
   log.querySelectorAll('.day-card').forEach(card=>{
-    card.onclick = ()=> openHistoryDetail(card.dataset.date, pastSets);
+    card.onclick = ()=>{
+      if(deleteMode){
+        toggleDateSelection(card.dataset.date, card);
+      } else {
+        openHistoryDetail(card.dataset.date, pastSets);
+      }
+    };
   });
+}
+
+function toggleDateSelection(date, cardEl){
+  if(selectedDates.has(date)){
+    selectedDates.delete(date);
+    cardEl.classList.remove('selected');
+  } else {
+    selectedDates.add(date);
+    cardEl.classList.add('selected');
+  }
+  updateDeleteBar();
+}
+
+function updateDeleteBar(){
+  const bar = document.getElementById('deleteBar');
+  const count = selectedDates.size;
+  document.getElementById('deleteCount').textContent = `${count} treino${count!==1?'s':''} selecionado${count!==1?'s':''}`;
+  bar.classList.toggle('show', deleteMode && count > 0);
+}
+
+function enterDeleteMode(){
+  deleteMode = true;
+  selectedDates = new Set();
+  document.getElementById('btnToggleDeleteMode').classList.add('active');
+  document.querySelectorAll('.day-card-checkbox').forEach(el=> el.style.display = 'flex');
+  document.querySelectorAll('.day-card-arrow').forEach(el=> el.style.display = 'none');
+  updateDeleteBar();
+}
+
+function exitDeleteMode(){
+  deleteMode = false;
+  selectedDates = new Set();
+  const btn = document.getElementById('btnToggleDeleteMode');
+  if(btn) btn.classList.remove('active');
+  document.querySelectorAll('.day-card').forEach(el=> el.classList.remove('selected'));
+  const bar = document.getElementById('deleteBar');
+  if(bar) bar.classList.remove('show');
+}
+
+async function deleteSelectedDays(){
+  if(selectedDates.size === 0) return;
+  allSets = allSets.filter(s => !selectedDates.has(s.date));
+  await saveSets(allSets);
+  const n = selectedDates.size;
+  renderHistory();
+  showToast(`${n} treino${n!==1?'s':''} excluído${n!==1?'s':''}`);
+}
+
+function bindDeleteMode(){
+  document.getElementById('btnToggleDeleteMode').onclick = ()=>{
+    if(deleteMode){
+      exitDeleteMode();
+      renderHistory();
+    } else {
+      enterDeleteMode();
+    }
+  };
+  document.getElementById('btnCancelDelete').onclick = ()=>{
+    exitDeleteMode();
+    renderHistory();
+  };
+  document.getElementById('btnConfirmDelete').onclick = deleteSelectedDays;
 }
 
 function showHistoryList(){
