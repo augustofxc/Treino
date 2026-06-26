@@ -213,13 +213,31 @@
   .btn-save{background: var(--accent); color:#0a0a0a; border:none; font-weight:700;}
   .btn-cancel-edit{background:none; border:1px solid var(--line); color: var(--ink-dim);}
 
-  /* History */
-  .history-day{margin-bottom:18px;}
-  .history-day-header{
-    font-size:12px; color: var(--ink-dim); text-transform:uppercase; letter-spacing:1px;
-    padding-bottom:6px; border-bottom:1px solid var(--line); margin-bottom:8px;
-    display:flex; justify-content:space-between;
+  /* History: day cards (list view) */
+  .day-card{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background: var(--bg-card); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin-bottom:10px; cursor:pointer;
   }
+  .day-card:active{ background: var(--bg-card-raised); }
+  .day-card-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
+  .day-card-date{font-family: Georgia, serif; font-size:16px; font-weight:700; color:var(--ink); text-transform:capitalize;}
+  .day-card-meta{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px;}
+  .day-card-right{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .day-card-vol{font-size:13px; color: var(--accent); font-weight:700; text-shadow: 0 0 6px rgba(57,255,106,0.25); white-space:nowrap;}
+  .day-card-arrow{color: var(--ink-dim); font-size:18px;}
+
+  /* History: day detail view */
+  .day-detail-header{
+    display:flex; align-items:center; gap:12px; margin-bottom:18px; padding-bottom:14px;
+    border-bottom:1px solid var(--line);
+  }
+  .btn-back{
+    background:none; border:1px solid var(--line); color: var(--ink); font-family:inherit;
+    font-size:16px; padding:8px 12px; border-radius:8px; cursor:pointer; flex-shrink:0;
+  }
+  .day-detail-title{font-family: Georgia, serif; font-size:19px; font-weight:700; color:var(--ink); text-transform:capitalize;}
+  .day-detail-vol{font-size:12px; color: var(--ink-dim); margin-top:2px;}
 
   /* Bottom nav */
   nav{
@@ -374,7 +392,19 @@
 
   <!-- HISTÓRICO VIEW -->
   <div class="view" id="view-historico">
-    <div id="historyLog"></div>
+    <div id="historyListWrap">
+      <div id="historyLog"></div>
+    </div>
+    <div id="historyDetailWrap" style="display:none;">
+      <div class="day-detail-header">
+        <button class="btn-back" id="btnHistoryBack">←</button>
+        <div>
+          <div class="day-detail-title" id="historyDetailTitle"></div>
+          <div class="day-detail-vol" id="historyDetailVol"></div>
+        </div>
+      </div>
+      <div id="historyDetailLog"></div>
+    </div>
   </div>
 
 </div>
@@ -705,6 +735,8 @@ async function saveEditModal(){
   if(reps === ''){ showToast('Informe as repetições'); return; }
   if(!dateVal || !timeVal){ showToast('Informe data e horário'); return; }
 
+  const originalDate = s.date;
+
   // build new ISO datetime from date+time (local time)
   const newDateTime = new Date(`${dateVal}T${timeVal}:00`);
 
@@ -718,8 +750,18 @@ async function saveEditModal(){
   await saveSets(allSets);
   closeEditModal();
   renderToday();
-  renderHistory();
   renderSuggestions();
+
+  // if we were viewing this day's detail and the date didn't change,
+  // stay in the detail view instead of bouncing back to the day list
+  const wasInDetail = document.getElementById('historyDetailWrap').style.display !== 'none';
+  if(wasInDetail && dateVal === originalDate){
+    const activeId = activeSession ? activeSession.id : null;
+    const refreshedPast = activeId ? allSets.filter(x => x.sessionId !== activeId) : allSets.slice();
+    openHistoryDetail(dateVal, refreshedPast);
+  } else {
+    renderHistory();
+  }
   showToast('Série atualizada');
 }
 
@@ -808,6 +850,9 @@ function renderHistory(){
   // everything shows here, including legacy sets without a sessionId.
   const pastSets = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
 
+  // always return to the list view when re-rendering history from scratch
+  showHistoryList();
+
   if(pastSets.length === 0){
     log.innerHTML = `<div class="empty-state">Sem treinos anteriores registrados.</div>`;
     return;
@@ -818,52 +863,95 @@ function renderHistory(){
   log.innerHTML = dates.map(date=>{
     const daySets = pastSets.filter(s=>s.date===date);
     const dayVolume = daySets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-
-    const order = [];
-    const groups = {};
-    daySets.forEach(s=>{
-      if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
-      groups[s.exercise].push(s);
-    });
+    const exerciseCount = new Set(daySets.map(s=>s.exercise)).size;
+    const setCount = daySets.length;
 
     return `
-      <div class="history-day">
-        <div class="history-day-header">
-          <span>${fmtDateLabel(date)}</span>
-          <span>${dayVolume>0 ? dayVolume.toLocaleString('pt-BR')+' kg vol.' : ''}</span>
+      <div class="day-card" data-date="${date}">
+        <div class="day-card-left">
+          <div class="day-card-date">${fmtDateLabel(date)}</div>
+          <div class="day-card-meta">${exerciseCount} exercício${exerciseCount!==1?'s':''} · ${setCount} série${setCount!==1?'s':''}</div>
         </div>
-        ${order.map(exName=>{
-          const sets = groups[exName].sort((a,b)=>a.setNum-b.setNum);
-          return `
-            <div class="exercise-group">
-              <div class="exercise-name" style="font-size:15px;">${escapeHtml(exName)}</div>
-              ${sets.map(s=>`
-                <div class="set-row">
-                  <div class="set-num">${s.setNum}</div>
-                  <div class="set-data">
-                    <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
-                    <span><b>${s.reps}</b> reps</span>
-                    <span class="set-time">${fmtTime(s.time)}</span>
-                  </div>
-                  <div class="row-actions">
-                    <button class="edit-btn" data-id="${s.id}">✎</button>
-                    <button class="del-btn" data-id="${s.id}">×</button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          `;
-        }).join('')}
+        <div class="day-card-right">
+          ${dayVolume>0 ? `<span class="day-card-vol">${dayVolume.toLocaleString('pt-BR')} kg</span>` : ''}
+          <span class="day-card-arrow">›</span>
+        </div>
       </div>
     `;
   }).join('');
 
-  log.querySelectorAll('.del-btn').forEach(btn=>{
-    btn.onclick = ()=> deleteSet(btn.dataset.id);
+  log.querySelectorAll('.day-card').forEach(card=>{
+    card.onclick = ()=> openHistoryDetail(card.dataset.date, pastSets);
   });
-  log.querySelectorAll('.edit-btn').forEach(btn=>{
+}
+
+function showHistoryList(){
+  document.getElementById('historyListWrap').style.display = '';
+  document.getElementById('historyDetailWrap').style.display = 'none';
+}
+
+function openHistoryDetail(date, pastSets){
+  const daySets = pastSets.filter(s=>s.date===date);
+  const dayVolume = daySets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
+
+  document.getElementById('historyDetailTitle').textContent = fmtDateLabel(date);
+  document.getElementById('historyDetailVol').textContent = dayVolume>0 ? `vol. total ${dayVolume.toLocaleString('pt-BR')} kg` : '';
+
+  const order = [];
+  const groups = {};
+  daySets.forEach(s=>{
+    if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
+    groups[s.exercise].push(s);
+  });
+
+  const detailLog = document.getElementById('historyDetailLog');
+  detailLog.innerHTML = order.map(exName=>{
+    const sets = groups[exName].sort((a,b)=>a.setNum-b.setNum);
+    const exVolume = sets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
+    return `
+      <div class="exercise-group">
+        <div class="exercise-name">
+          <span>${escapeHtml(exName)}</span>
+          <span class="vol">${exVolume>0 ? exVolume.toLocaleString('pt-BR')+' kg vol.' : ''}</span>
+        </div>
+        ${sets.map(s=>`
+          <div class="set-row">
+            <div class="set-num">${s.setNum}</div>
+            <div class="set-data">
+              <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
+              <span><b>${s.reps}</b> reps</span>
+              <span class="set-time">${fmtTime(s.time)}</span>
+            </div>
+            <div class="row-actions">
+              <button class="edit-btn" data-id="${s.id}">✎</button>
+              <button class="del-btn" data-id="${s.id}">×</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+
+  detailLog.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      await deleteSet(btn.dataset.id);
+      // refresh detail view in place; if day is now empty, go back to list
+      const stillThere = allSets.some(s=>s.date===date);
+      if(stillThere){
+        const activeId = activeSession ? activeSession.id : null;
+        const refreshedPast = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
+        openHistoryDetail(date, refreshedPast);
+      } else {
+        renderHistory();
+      }
+    };
+  });
+  detailLog.querySelectorAll('.edit-btn').forEach(btn=>{
     btn.onclick = ()=> openEditModal(btn.dataset.id);
   });
+
+  document.getElementById('historyListWrap').style.display = 'none';
+  document.getElementById('historyDetailWrap').style.display = '';
 }
 
 // ---------- Nav ----------
@@ -877,6 +965,7 @@ function bindNav(){
       if(btn.dataset.view === 'historico') renderHistory();
     };
   });
+  document.getElementById('btnHistoryBack').onclick = showHistoryList;
 }
 
 // ---------- Backup menu ----------
