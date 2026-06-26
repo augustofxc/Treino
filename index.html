@@ -36,7 +36,7 @@
 
   /* Header */
   header{
-    display:flex; align-items:baseline; justify-content:space-between;
+    display:flex; align-items:flex-start; justify-content:space-between;
     padding: 6px 2px 18px;
     border-bottom: 1px solid var(--line);
     margin-bottom: 18px;
@@ -48,6 +48,14 @@
     letter-spacing: -0.5px;
     margin:0;
     color: var(--ink);
+  }
+  .brand-tag{
+    font-size: 10px;
+    color: var(--ink-dim);
+    opacity: 0.55;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 3px;
   }
   header .date{
     font-size: 12px;
@@ -244,6 +252,7 @@
   }
   .day-card-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
   .day-card-date{font-family: Georgia, serif; font-size:16px; font-weight:700; color:var(--ink); text-transform:capitalize;}
+  .day-card-time{font-family: 'Courier New', monospace; font-size:12px; font-weight:400; color: var(--ink-dim); margin-left:4px;}
   .day-card-meta{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px;}
   .day-card-right{display:flex; align-items:center; gap:10px; flex-shrink:0;}
   .day-card-vol{font-size:13px; color: var(--accent); font-weight:700; text-shadow: 0 0 6px rgba(57,255,106,0.25); white-space:nowrap;}
@@ -307,7 +316,10 @@
 
 <div class="wrap">
   <header>
-    <h1>Treino</h1>
+    <div>
+      <h1>Treino</h1>
+      <div class="brand-tag">AF Company</div>
+    </div>
     <div class="header-right">
       <div class="date" id="todayLabel">—</div>
       <button class="btn-backup" id="btnBackupOpen">⤓ Backup</button>
@@ -521,9 +533,24 @@ function showToast(msg){
 }
 
 // ---------- Init ----------
+function migrateLegacySets(sets){
+  // sets created before sessions existed don't have a sessionId.
+  // Group them by date so they still show as one card per day, like before.
+  let changed = false;
+  sets.forEach(s=>{
+    if(!s.sessionId){
+      s.sessionId = 'legacy_' + s.date;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 async function init(){
   document.getElementById('todayLabel').textContent = fmtDateLabel(todayStr());
   allSets = await loadSets();
+  const migrated = migrateLegacySets(allSets);
+  if(migrated) await saveSets(allSets);
   activeSession = await loadSession();
   renderSessionBar();
   renderToday();
@@ -785,7 +812,7 @@ async function saveEditModal(){
   if(reps === ''){ showToast('Informe as repetições'); return; }
   if(!dateVal || !timeVal){ showToast('Informe data e horário'); return; }
 
-  const originalDate = s.date;
+  const sessionId = s.sessionId;
 
   // build new ISO datetime from date+time (local time)
   const newDateTime = new Date(`${dateVal}T${timeVal}:00`);
@@ -802,13 +829,13 @@ async function saveEditModal(){
   renderToday();
   renderSuggestions();
 
-  // if we were viewing this day's detail and the date didn't change,
-  // stay in the detail view instead of bouncing back to the day list
+  // editing never changes which session a set belongs to, so we can
+  // always stay in the same session's detail view after saving
   const wasInDetail = document.getElementById('historyDetailWrap').style.display !== 'none';
-  if(wasInDetail && dateVal === originalDate){
+  if(wasInDetail){
     const activeId = activeSession ? activeSession.id : null;
     const refreshedPast = activeId ? allSets.filter(x => x.sessionId !== activeId) : allSets.slice();
-    openHistoryDetail(dateVal, refreshedPast);
+    openHistoryDetail(sessionId, refreshedPast);
   } else {
     renderHistory();
   }
@@ -893,7 +920,7 @@ function renderToday(){
 
 // ---------- Render History ----------
 let deleteMode = false;
-let selectedDates = new Set();
+let selectedSessionIds = new Set();
 
 function renderHistory(){
   const log = document.getElementById('historyLog');
@@ -912,23 +939,39 @@ function renderHistory(){
     return;
   }
 
-  const dates = [...new Set(pastSets.map(s=>s.date))].sort((a,b)=> b.localeCompare(a));
+  // group by sessionId so each "iniciar -> finalizar" run is its own card,
+  // even if there were multiple workouts on the same day
+  const sessionOrder = [];
+  const bySession = {};
+  pastSets.forEach(s=>{
+    if(!bySession[s.sessionId]){ bySession[s.sessionId] = []; sessionOrder.push(s.sessionId); }
+    bySession[s.sessionId].push(s);
+  });
 
-  log.innerHTML = dates.map(date=>{
-    const daySets = pastSets.filter(s=>s.date===date);
-    const dayVolume = daySets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-    const exerciseCount = new Set(daySets.map(s=>s.exercise)).size;
-    const setCount = daySets.length;
+  // sort sessions by their earliest set time, most recent first
+  sessionOrder.sort((a,b)=>{
+    const aTime = Math.min(...bySession[a].map(s=> new Date(s.time).getTime()));
+    const bTime = Math.min(...bySession[b].map(s=> new Date(s.time).getTime()));
+    return bTime - aTime;
+  });
+
+  log.innerHTML = sessionOrder.map(sid=>{
+    const sessionSets = bySession[sid];
+    const date = sessionSets[0].date;
+    const sessionVolume = sessionSets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
+    const exerciseCount = new Set(sessionSets.map(s=>s.exercise)).size;
+    const setCount = sessionSets.length;
+    const earliestTime = sessionSets.reduce((min,s)=> !min || s.time < min ? s.time : min, null);
 
     return `
-      <div class="day-card" data-date="${date}">
+      <div class="day-card" data-session-id="${sid}">
         <div class="day-card-checkbox" style="display:${deleteMode ? 'flex' : 'none'};">✓</div>
         <div class="day-card-left">
-          <div class="day-card-date">${fmtDateLabel(date)}</div>
+          <div class="day-card-date">${fmtDateLabel(date)} <span class="day-card-time">${fmtTime(earliestTime)}</span></div>
           <div class="day-card-meta">${exerciseCount} exercício${exerciseCount!==1?'s':''} · ${setCount} série${setCount!==1?'s':''}</div>
         </div>
         <div class="day-card-right">
-          ${dayVolume>0 ? `<span class="day-card-vol">${dayVolume.toLocaleString('pt-BR')} kg</span>` : ''}
+          ${sessionVolume>0 ? `<span class="day-card-vol">${sessionVolume.toLocaleString('pt-BR')} kg</span>` : ''}
           <span class="day-card-arrow" style="display:${deleteMode ? 'none' : 'inline'};">›</span>
         </div>
       </div>
@@ -938,20 +981,20 @@ function renderHistory(){
   log.querySelectorAll('.day-card').forEach(card=>{
     card.onclick = ()=>{
       if(deleteMode){
-        toggleDateSelection(card.dataset.date, card);
+        toggleSessionSelection(card.dataset.sessionId, card);
       } else {
-        openHistoryDetail(card.dataset.date, pastSets);
+        openHistoryDetail(card.dataset.sessionId, pastSets);
       }
     };
   });
 }
 
-function toggleDateSelection(date, cardEl){
-  if(selectedDates.has(date)){
-    selectedDates.delete(date);
+function toggleSessionSelection(sid, cardEl){
+  if(selectedSessionIds.has(sid)){
+    selectedSessionIds.delete(sid);
     cardEl.classList.remove('selected');
   } else {
-    selectedDates.add(date);
+    selectedSessionIds.add(sid);
     cardEl.classList.add('selected');
   }
   updateDeleteBar();
@@ -959,14 +1002,14 @@ function toggleDateSelection(date, cardEl){
 
 function updateDeleteBar(){
   const bar = document.getElementById('deleteBar');
-  const count = selectedDates.size;
+  const count = selectedSessionIds.size;
   document.getElementById('deleteCount').textContent = `${count} treino${count!==1?'s':''} selecionado${count!==1?'s':''}`;
   bar.classList.toggle('show', deleteMode && count > 0);
 }
 
 function enterDeleteMode(){
   deleteMode = true;
-  selectedDates = new Set();
+  selectedSessionIds = new Set();
   document.getElementById('btnToggleDeleteMode').classList.add('active');
   document.querySelectorAll('.day-card-checkbox').forEach(el=> el.style.display = 'flex');
   document.querySelectorAll('.day-card-arrow').forEach(el=> el.style.display = 'none');
@@ -975,7 +1018,7 @@ function enterDeleteMode(){
 
 function exitDeleteMode(){
   deleteMode = false;
-  selectedDates = new Set();
+  selectedSessionIds = new Set();
   const btn = document.getElementById('btnToggleDeleteMode');
   if(btn) btn.classList.remove('active');
   document.querySelectorAll('.day-card').forEach(el=> el.classList.remove('selected'));
@@ -984,10 +1027,10 @@ function exitDeleteMode(){
 }
 
 async function deleteSelectedDays(){
-  if(selectedDates.size === 0) return;
-  allSets = allSets.filter(s => !selectedDates.has(s.date));
+  if(selectedSessionIds.size === 0) return;
+  allSets = allSets.filter(s => !selectedSessionIds.has(s.sessionId));
   await saveSets(allSets);
-  const n = selectedDates.size;
+  const n = selectedSessionIds.size;
   renderHistory();
   showToast(`${n} treino${n!==1?'s':''} excluído${n!==1?'s':''}`);
 }
@@ -1013,16 +1056,18 @@ function showHistoryList(){
   document.getElementById('historyDetailWrap').style.display = 'none';
 }
 
-function openHistoryDetail(date, pastSets){
-  const daySets = pastSets.filter(s=>s.date===date);
-  const dayVolume = daySets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
+function openHistoryDetail(sessionId, pastSets){
+  const sessionSets = pastSets.filter(s=>s.sessionId===sessionId);
+  if(sessionSets.length === 0) return;
+  const date = sessionSets[0].date;
+  const sessionVolume = sessionSets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
 
   document.getElementById('historyDetailTitle').textContent = fmtDateLabel(date);
-  document.getElementById('historyDetailVol').textContent = dayVolume>0 ? `vol. total ${dayVolume.toLocaleString('pt-BR')} kg` : '';
+  document.getElementById('historyDetailVol').textContent = sessionVolume>0 ? `vol. total ${sessionVolume.toLocaleString('pt-BR')} kg` : '';
 
   const order = [];
   const groups = {};
-  daySets.forEach(s=>{
+  sessionSets.forEach(s=>{
     if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
     groups[s.exercise].push(s);
   });
@@ -1058,12 +1103,12 @@ function openHistoryDetail(date, pastSets){
   detailLog.querySelectorAll('.del-btn').forEach(btn=>{
     btn.onclick = async ()=>{
       await deleteSet(btn.dataset.id);
-      // refresh detail view in place; if day is now empty, go back to list
-      const stillThere = allSets.some(s=>s.date===date);
+      // refresh detail view in place; if session is now empty, go back to list
+      const stillThere = allSets.some(s=>s.sessionId===sessionId);
       if(stillThere){
         const activeId = activeSession ? activeSession.id : null;
         const refreshedPast = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
-        openHistoryDetail(date, refreshedPast);
+        openHistoryDetail(sessionId, refreshedPast);
       } else {
         renderHistory();
       }
