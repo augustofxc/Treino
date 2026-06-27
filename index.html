@@ -510,6 +510,7 @@ async function saveSession(s){
 let allSets = [];
 let activeSession = null; // { startedAt: iso }
 let sessionTimerInterval = null;
+let lastLoggedExercise = ''; // tracks the most recently logged exercise name in this session, to know when to reset the set counter
 
 function todayStr(d=new Date()){
   return d.toISOString().slice(0,10);
@@ -562,10 +563,12 @@ async function init(){
   bindDeleteMode();
   if(activeSession) startTimerTick();
 
-  // restore last used exercise name as convenience
-  const last = allSets[allSets.length-1];
-  if(last) {
-    document.getElementById('inpSetNum').placeholder = '1';
+  // restore the last exercise logged in the active session, so the set
+  // counter behaves correctly even after a page reload mid-workout
+  if(activeSession){
+    const sessionSets = allSets.filter(s => s.sessionId === activeSession.id);
+    const last = sessionSets[sessionSets.length - 1];
+    if(last) lastLoggedExercise = last.exercise;
   }
 }
 
@@ -608,6 +611,7 @@ async function endSession(){
   document.getElementById('inpLoad').value = '';
   document.getElementById('inpReps').value = '';
   document.getElementById('inpSetNum').value = '';
+  lastLoggedExercise = '';
   hideSuggestions();
   showToast('Treino finalizado — registro salvo no histórico');
 }
@@ -705,10 +709,7 @@ function bindForm(){
   inpExercise.addEventListener('blur', ()=>{
     const name = inpExercise.value.trim();
     if(name){
-      const setNumInput = document.getElementById('inpSetNum');
-      if(!setNumInput.value){
-        setNumInput.value = computeNextSetNum(name);
-      }
+      document.getElementById('inpSetNum').value = computeNextSetNum(name);
     }
   });
 
@@ -728,7 +729,13 @@ async function addSet(){
 
   if(!exercise){ showToast('Informe o exercício'); document.getElementById('inpExercise').focus(); return; }
   if(reps === ''){ showToast('Informe as repetições'); document.getElementById('inpReps').focus(); return; }
-  if(!setNum) setNum = computeNextSetNum(exercise);
+
+  // safety net: if the exercise typed is different from the last one logged
+  // in this session, the set number must restart for this exercise,
+  // regardless of whatever was left in the field (e.g. user didn't blur).
+  if(!setNum || exercise.toLowerCase() !== lastLoggedExercise.toLowerCase()){
+    setNum = computeNextSetNum(exercise);
+  }
 
   // auto-start a session if the person just starts logging without tapping "Iniciar treino"
   if(!activeSession){
@@ -751,6 +758,7 @@ async function addSet(){
 
   allSets.push(entry);
   await saveSets(allSets);
+  lastLoggedExercise = exercise;
 
   // prep for next set: same exercise, increment set number, clear reps/load? keep load (often same), clear nothing drastic
   document.getElementById('inpSetNum').value = entry.setNum + 1;
