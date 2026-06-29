@@ -1,1325 +1,258 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a0a">
-<link rel="manifest" href="./manifest.json">
-<link rel="icon" href="./icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="./icon-192.png">
-<title>Treino</title>
-<style>
-  :root{
-    --bg: #0a0a0a;
-    --bg-card: #161616;
-    --bg-card-raised: #1f1f1f;
-    --ink: #f5f5f5;
-    --ink-dim: #8a8a8a;
-    --line: #2e2e2e;
-    --chalk: #d4d4d4;
-    --accent: #39ff6a;
-    --accent-cyan: #00e5ff;
-    --accent-dim: #2b8f47;
-    --danger: #ff3b5c;
-    --radius: 14px;
-  }
-  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family: 'Courier New', ui-monospace, monospace; }
-  body{
-    min-height:100vh;
-    padding-bottom: 100px;
-  }
-  .wrap{max-width:560px; margin:0 auto; padding: 18px 16px 0;}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>Minhas Contas</title>
+<meta name="description" content="Controle de gastos e entradas do dia a dia" />
 
-  /* Header */
-  header{
-    display:flex; align-items:flex-start; justify-content:space-between;
-    padding: 6px 2px 18px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 18px;
-  }
-  header h1{
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    margin:0;
-    color: var(--ink);
-  }
-  .brand-tag{
-    font-size: 10px;
-    color: var(--ink-dim);
-    opacity: 0.55;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    margin-top: 3px;
-  }
-  header .date{
-    font-size: 12px;
-    color: var(--ink-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .header-right{display:flex; flex-direction:column; align-items:flex-end; gap:6px;}
-  .btn-backup{
-    background:none; border:1px solid var(--line); color: var(--ink-dim);
-    font-family:inherit; font-size:10px; text-transform:uppercase; letter-spacing:0.8px;
-    padding: 5px 9px; border-radius:6px; cursor:pointer;
-  }
-  .backup-menu{
-    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:90;
-    display:none; align-items:flex-end; justify-content:center;
-  }
-  .backup-menu.show{display:flex;}
-  .backup-sheet{
-    background: var(--bg-card); border-top:1px solid var(--line);
-    border-radius: 16px 16px 0 0; width:100%; max-width:560px; padding: 10px 16px 28px;
-  }
-  .backup-sheet .handle{width:36px; height:4px; background:var(--line); border-radius:2px; margin: 6px auto 16px;}
-  .backup-sheet h3{font-family:Georgia, serif; font-size:16px; margin: 0 0 4px; color:var(--ink);}
-  .backup-sheet p{font-size:12px; color:var(--ink-dim); margin:0 0 16px; line-height:1.5;}
-  .backup-option{
-    width:100%; display:flex; align-items:center; gap:12px; background: var(--bg-card-raised);
-    border:1px solid var(--line); border-radius:10px; padding: 13px 14px; margin-bottom:10px;
-    color: var(--ink); font-family:inherit; font-size:14px; cursor:pointer; text-align:left;
-  }
-  .backup-option .opt-label{font-weight:700;}
-  .backup-option .opt-sub{display:block; font-size:11px; color:var(--ink-dim); font-weight:400; margin-top:2px;}
-  .backup-option select{width:auto; margin-left:auto; padding:6px 8px; font-size:12px;}
-  .backup-cancel{
-    width:100%; background:none; border:none; color:var(--ink-dim); font-family:inherit;
-    font-size:13px; padding: 10px; cursor:pointer; text-transform:uppercase; letter-spacing:1px;
-  }
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1C1E1F" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Minhas Contas" />
+<meta name="mobile-web-app-capable" content="yes" />
 
-  /* Active session bar */
-  .session-bar{
-    display:flex; align-items:center; justify-content:space-between;
-    background: var(--bg-card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 12px 16px;
-    margin-bottom: 16px;
-  }
-  .session-bar .label{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:1px;}
-  .session-bar .timer{font-size:20px; font-weight:700; color:var(--accent-cyan); font-variant-numeric: tabular-nums; text-shadow: 0 0 8px rgba(0,229,255,0.35);}
-  .btn-end{
-    background:transparent; border:1px solid var(--danger); color:var(--danger);
-    padding:8px 14px; border-radius:8px; font-family:inherit; font-size:12px;
-    text-transform:uppercase; letter-spacing:0.5px; cursor:pointer;
-  }
-  .btn-start-session{
-    width:100%; background: transparent; border: 1px dashed var(--line); color: var(--ink-dim);
-    padding:14px; border-radius: var(--radius); font-family:inherit; font-size:13px;
-    text-transform:uppercase; letter-spacing:1px; cursor:pointer; margin-bottom:16px;
-  }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  /* Exercise entry card */
-  .entry-card{
-    background: var(--bg-card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 14px;
-  }
-  .field-row{display:flex; gap:10px; margin-bottom:10px;}
-  .field-row:last-child{margin-bottom:0;}
-  .field{flex:1; min-width:0;}
-  .field label{
-    display:block; font-size:10px; color:var(--ink-dim); text-transform:uppercase;
-    letter-spacing: 0.8px; margin-bottom:5px;
-  }
-  input, select{
-    width:100%; background: var(--bg-card-raised); border:1px solid var(--line);
-    color: var(--ink); font-family:inherit; font-size:16px; padding: 11px 10px;
-    border-radius: 8px; outline:none;
-  }
-  input:focus, select:focus{ border-color: var(--accent); }
-  input::placeholder{color:#5d5b4d;}
-  .field.exname{flex: 2.2;}
-  .field.num{flex:1;}
-
-  .btn-add{
-    width:100%; background: var(--accent); border:none; color:#0a0a0a;
-    font-family:inherit; font-weight:700; font-size:14px; text-transform:uppercase;
-    letter-spacing:1px; padding:13px; border-radius:8px; cursor:pointer; margin-top:12px;
-  }
-  .btn-add:active{transform: scale(0.99);}
-
-  /* Suggestions: autocomplete dropdown */
-  .field.exname{position:relative;}
-  #suggestWrap{
-    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30;
-    background: var(--bg-card-raised); border:1px solid var(--line); border-radius:10px;
-    max-height:220px; overflow-y:auto; display:none;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-  }
-  #suggestWrap.open{display:block;}
-  .suggest-item{
-    padding:11px 14px; font-size:14px; color:var(--ink); cursor:pointer;
-    border-bottom:1px solid var(--line);
-  }
-  .suggest-item:last-child{border-bottom:none;}
-  .suggest-item:active{background: var(--bg-card);}
-
-  /* Log of today's sets */
-  .section-label{
-    font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--ink-dim);
-    margin: 22px 2px 10px; display:flex; justify-content:space-between;
-  }
-  .exercise-group{margin-bottom: 14px;}
-  .exercise-name{
-    font-family: Georgia, serif; font-size:17px; font-weight:700; color: var(--chalk);
-    padding: 2px 2px 8px; display:flex; justify-content:space-between; align-items:baseline;
-  }
-  .exercise-name .vol{font-size:11px; font-family: 'Courier New', monospace; color: var(--accent-dim); font-weight:400;}
-  .set-row{
-    display:flex; align-items:center; gap:10px;
-    background: var(--bg-card); border:1px solid var(--line); border-radius:10px;
-    padding: 10px 14px; margin-bottom:6px; font-size:14px;
-  }
-  .set-num{
-    width:22px; height:22px; border-radius:50%; background: var(--bg-card-raised);
-    display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--ink-dim);
-    flex-shrink:0;
-  }
-  .set-data{flex:1; display:flex; gap:16px;}
-  .set-data b{color: var(--accent); font-weight:700; text-shadow: 0 0 6px rgba(57,255,106,0.25);}
-  .set-time{color:var(--ink-dim); font-size:11px;}
-  .row-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
-  .edit-btn, .del-btn{
-    background:none; border:none; color: var(--ink-dim); font-size:15px; cursor:pointer;
-    padding: 4px 6px; line-height:1;
-  }
-  .del-btn{font-size:18px;}
-  .edit-btn:active, .del-btn:active{color: var(--ink);}
-  .empty-state{
-    text-align:center; color: var(--ink-dim); font-size:13px; padding: 30px 10px;
-    border: 1px dashed var(--line); border-radius: var(--radius);
-  }
-
-  /* Edit modal */
-  .edit-menu{
-    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:95;
-    display:none; align-items:flex-end; justify-content:center;
-  }
-  .edit-menu.show{display:flex;}
-  .edit-sheet{
-    background: var(--bg-card); border-top:1px solid var(--line);
-    border-radius: 16px 16px 0 0; width:100%; max-width:560px; padding: 10px 16px 24px;
-  }
-  .edit-sheet .handle{width:36px; height:4px; background:var(--line); border-radius:2px; margin: 6px auto 14px;}
-  .edit-sheet h3{font-family:Georgia, serif; font-size:16px; margin: 0 0 14px; color:var(--ink);}
-  .edit-sheet .field-row{margin-bottom:10px;}
-  .edit-actions{display:flex; gap:10px; margin-top:14px;}
-  .edit-actions button{
-    flex:1; font-family:inherit; font-size:13px; text-transform:uppercase; letter-spacing:0.8px;
-    padding:12px; border-radius:8px; cursor:pointer;
-  }
-  .btn-save{background: var(--accent); color:#0a0a0a; border:none; font-weight:700;}
-  .btn-cancel-edit{background:none; border:1px solid var(--line); color: var(--ink-dim);}
-
-  /* History: day cards (list view) */
-  .history-toolbar{
-    display:flex; align-items:center; justify-content:space-between;
-    margin-bottom:14px;
-  }
-  .history-toolbar h2{
-    font-family: Georgia, serif; font-size:18px; font-weight:700; color: var(--ink); margin:0;
-  }
-  .btn-trash{
-    background:none; border:1px solid var(--line); color: var(--ink-dim);
-    font-size:15px; padding:8px 11px; border-radius:8px; cursor:pointer;
-  }
-  .btn-trash.active{ border-color: var(--danger); color: var(--danger); }
-
-  .day-card{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    background: var(--bg-card); border:1px solid var(--line); border-radius: var(--radius);
-    padding: 16px; margin-bottom:10px; cursor:pointer;
-  }
-  .day-card:active{ background: var(--bg-card-raised); }
-  .day-card.selected{ border-color: var(--danger); background: rgba(255,59,92,0.08); }
-  .day-card-checkbox{
-    width:20px; height:20px; border-radius:50%; border:2px solid var(--line);
-    flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    font-size:12px; color: transparent; transition: all 0.15s;
-  }
-  .day-card.selected .day-card-checkbox{
-    background: var(--danger); border-color: var(--danger); color:#0a0a0a;
-  }
-  .day-card-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
-  .day-card-date{font-family: Georgia, serif; font-size:16px; font-weight:700; color:var(--ink); text-transform:capitalize;}
-  .day-card-time{font-family: 'Courier New', monospace; font-size:12px; font-weight:400; color: var(--ink-dim); margin-left:4px;}
-  .day-card-meta{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px;}
-  .day-card-right{display:flex; align-items:center; gap:10px; flex-shrink:0;}
-  .day-card-vol{font-size:13px; color: var(--accent); font-weight:700; text-shadow: 0 0 6px rgba(57,255,106,0.25); white-space:nowrap;}
-  .day-card-arrow{color: var(--ink-dim); font-size:18px;}
-
-  .delete-bar{
-    position:fixed; bottom:64px; left:0; right:0; z-index:40;
-    background: var(--bg-card-raised); border-top:1px solid var(--line);
-    display:none; align-items:center; justify-content:space-between;
-    padding: 12px 16px; max-width:560px; margin:0 auto;
-  }
-  .delete-bar.show{display:flex;}
-  .delete-bar .count{font-size:13px; color: var(--ink-dim);}
-  .delete-bar button{
-    font-family:inherit; font-size:12px; text-transform:uppercase; letter-spacing:0.8px;
-    padding:10px 16px; border-radius:8px; cursor:pointer;
-  }
-  .btn-confirm-delete{ background: var(--danger); border:none; color:#0a0a0a; font-weight:700; }
-  .btn-cancel-delete{ background:none; border:1px solid var(--line); color: var(--ink-dim); margin-right:8px; }
-
-  /* History: day detail view */
-  .day-detail-header{
-    display:flex; align-items:center; gap:12px; margin-bottom:18px; padding-bottom:14px;
-    border-bottom:1px solid var(--line);
-  }
-  .btn-back{
-    background:none; border:1px solid var(--line); color: var(--ink); font-family:inherit;
-    font-size:16px; padding:8px 12px; border-radius:8px; cursor:pointer; flex-shrink:0;
-  }
-  .day-detail-title{font-family: Georgia, serif; font-size:19px; font-weight:700; color:var(--ink); text-transform:capitalize;}
-  .day-detail-vol{font-size:12px; color: var(--ink-dim); margin-top:2px;}
-
-  /* Bottom nav */
-  nav{
-    position:fixed; bottom:0; left:0; right:0;
-    background: var(--bg-card); border-top:1px solid var(--line);
-    display:flex; max-width:560px; margin:0 auto;
-  }
-  nav button{
-    flex:1; background:none; border:none; color:var(--ink-dim); font-family:inherit;
-    font-size:11px; text-transform:uppercase; letter-spacing:0.8px; padding: 14px 4px;
-    cursor:pointer; border-top: 2px solid transparent;
-  }
-  nav button.active{color:var(--accent); border-top-color: var(--accent);}
-
-  .view{display:none;}
-  .view.active{display:block;}
-
-  .toast{
-    position:fixed; bottom: 90px; left:50%; transform:translateX(-50%);
-    background: var(--accent); color:#0a0a0a; padding:10px 20px; border-radius:30px;
-    font-size:13px; font-weight:700; opacity:0; transition: opacity 0.25s, transform 0.25s;
-    pointer-events:none; white-space:nowrap; z-index:50;
-  }
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
-
-  ::-webkit-scrollbar{display:none;}
-</style>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div class="wrap">
-  <header>
-    <div>
-      <h1>Treino</h1>
-      <div class="brand-tag">AF Company</div>
-    </div>
-    <div class="header-right">
-      <div class="date" id="todayLabel">—</div>
-      <button class="btn-backup" id="btnBackupOpen">⤓ Backup</button>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="app">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <span class="app-header-title" id="screenTitle">Lançar</span>
+      <button class="icon-btn" id="menuBtn" aria-label="Mais opções">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
+      </button>
     </div>
   </header>
 
-  <div class="backup-menu" id="backupMenu">
-    <div class="backup-sheet">
-      <div class="handle"></div>
-      <h3>Exportar treino</h3>
-      <p>Gere uma cópia fora do app. O PDF é só leitura; o JSON serve pra restaurar os dados depois, se precisar.</p>
+  <!-- ===================== MAIN ===================== -->
+  <main id="main">
 
-      <button class="backup-option" id="optPdf">
-        <span>
-          <span class="opt-label">PDF do dia</span>
-          <span class="opt-sub">Ficha legível, pronta pra imprimir ou guardar</span>
-        </span>
-        <select id="pdfDateSelect"></select>
-      </button>
+    <!-- ---------- TELA: LANÇAR ---------- -->
+    <section class="screen" id="screen-lancar" data-screen>
+      <form id="formLancamento" class="form-card" novalidate>
 
-      <button class="backup-option" id="optPdfAll">
-        <span>
-          <span class="opt-label">PDF — histórico completo</span>
-          <span class="opt-sub">Todos os treinos registrados, um por dia</span>
-        </span>
-      </button>
+        <div class="segmented" id="tipoSegmented">
+          <button type="button" class="segmented-btn is-active" data-tipo="saida">Saída</button>
+          <button type="button" class="segmented-btn" data-tipo="entrada">Entrada</button>
+        </div>
 
-      <button class="backup-option" id="optJson">
-        <span>
-          <span class="opt-label">Backup completo (JSON)</span>
-          <span class="opt-sub">Arquivo de dados bruto, para restaurar depois</span>
-        </span>
-      </button>
+        <label class="field">
+          <span class="field-label">Nome</span>
+          <input type="text" id="campoNome" placeholder="Ex: Supermercado, Salário..." autocomplete="off" required />
+        </label>
 
-      <button class="backup-cancel" id="btnBackupClose">Cancelar</button>
-    </div>
-  </div>
+        <label class="field">
+          <span class="field-label">Valor</span>
+          <div class="value-input-wrap">
+            <span class="value-prefix">R$</span>
+            <input type="text" inputmode="decimal" id="campoValor" placeholder="0,00" required />
+          </div>
+        </label>
 
-  <div class="edit-menu" id="editMenu">
-    <div class="edit-sheet">
-      <div class="handle"></div>
-      <h3>Editar série</h3>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Data</span>
+            <input type="date" id="campoData" required />
+          </label>
 
-      <div class="field-row">
-        <div class="field exname">
-          <label>Exercício</label>
-          <input type="text" id="editExercise">
+          <label class="field">
+            <span class="field-label">Categoria</span>
+            <select id="campoCategoria"></select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Forma de pagamento</span>
+          <div class="chip-group" id="formaPagamentoChips">
+            <button type="button" class="chip" data-forma="Pix">Pix</button>
+            <button type="button" class="chip" data-forma="Débito">Débito</button>
+            <button type="button" class="chip" data-forma="Crédito">Crédito</button>
+            <button type="button" class="chip" data-forma="Dinheiro">Dinheiro</button>
+            <button type="button" class="chip" data-forma="Outro">Outro</button>
+          </div>
+        </label>
+
+        <label class="switch-row" id="parceladoRow">
+          <span class="field-label">É parcelado?</span>
+          <span class="switch">
+            <input type="checkbox" id="campoParcelado" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+
+        <div class="field-row" id="parcelasFields" hidden>
+          <label class="field">
+            <span class="field-label">Nº de parcelas</span>
+            <input type="number" id="campoNumParcelas" min="2" max="60" placeholder="Ex: 12" />
+          </label>
+          <label class="field">
+            <span class="field-label">Parcelas já pagas</span>
+            <input type="number" id="campoParcelasPagas" min="0" placeholder="Ex: 0" />
+          </label>
+        </div>
+        <p class="hint" id="parceladoHint" hidden>O valor informado acima é o valor de <strong>cada parcela</strong>.</p>
+
+        <label class="field">
+          <span class="field-label">Observação (opcional)</span>
+          <input type="text" id="campoObs" placeholder="Algum detalhe extra..." autocomplete="off" />
+        </label>
+
+        <button type="submit" class="btn-primary" id="btnSalvarLancamento">Salvar lançamento</button>
+      </form>
+    </section>
+
+    <!-- ---------- TELA: HISTÓRICO ---------- -->
+    <section class="screen" id="screen-historico" data-screen hidden>
+      <div class="screen-toolbar">
+        <div class="filter-scroll" id="filtroCategorias"></div>
+        <button class="icon-btn-outline" id="btnFiltroAvancado" aria-label="Filtrar por mês">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="listaHistorico" class="lista-container"></div>
+      <div class="empty-state" id="emptyHistorico" hidden>
+        <p class="empty-title">Nada por aqui ainda</p>
+        <p class="empty-text">Os lançamentos que você salvar vão aparecer aqui, organizados por dia.</p>
+      </div>
+    </section>
+
+    <!-- ---------- TELA: RESUMO ---------- -->
+    <section class="screen" id="screen-resumo" data-screen hidden>
+      <div class="month-switcher">
+        <button class="icon-btn" id="resumoMesAnterior" aria-label="Mês anterior">‹</button>
+        <span class="month-switcher-label" id="resumoMesLabel">Junho 2026</span>
+        <button class="icon-btn" id="resumoMesProximo" aria-label="Mês seguinte">›</button>
+      </div>
+
+      <div class="balance-card">
+        <span class="balance-label">Saldo do mês</span>
+        <span class="balance-value" id="resumoSaldo">R$ 0,00</span>
+        <div class="balance-sub">
+          <span class="balance-sub-item in"><span class="dot"></span>Entrou <strong id="resumoEntrou">R$ 0,00</strong></span>
+          <span class="balance-sub-item out"><span class="dot"></span>Saiu <strong id="resumoSaiu">R$ 0,00</strong></span>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Data</label>
-          <input type="date" id="editDate">
-        </div>
-        <div class="field">
-          <label>Horário</label>
-          <input type="time" id="editTime">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field num">
-          <label>Carga (kg)</label>
-          <input type="number" id="editLoad" inputmode="decimal" step="0.5" min="0">
-        </div>
-        <div class="field num">
-          <label>Reps</label>
-          <input type="number" id="editReps" inputmode="numeric" min="0">
-        </div>
-        <div class="field num">
-          <label>Série Nº</label>
-          <input type="number" id="editSetNum" inputmode="numeric" min="1">
-        </div>
-      </div>
 
-      <div class="edit-actions">
-        <button class="btn-cancel-edit" id="btnEditCancel">Cancelar</button>
-        <button class="btn-save" id="btnEditSave">Salvar</button>
+      <h3 class="section-title">Por forma de pagamento</h3>
+      <div class="payment-grid" id="resumoFormaPagamento"></div>
+
+      <h3 class="section-title">Por categoria</h3>
+      <div class="category-list" id="resumoCategorias"></div>
+    </section>
+
+    <!-- ---------- TELA: PARCELAS ---------- -->
+    <section class="screen" id="screen-parcelas" data-screen hidden>
+      <div id="listaParcelas" class="lista-container"></div>
+      <div class="empty-state" id="emptyParcelas" hidden>
+        <p class="empty-title">Nenhuma conta parcelada</p>
+        <p class="empty-text">Quando você marcar um lançamento como parcelado, ele aparece aqui com o progresso das parcelas.</p>
       </div>
-    </div>
-  </div>
+    </section>
 
+    <!-- ---------- TELA: PROJEÇÃO ---------- -->
+    <section class="screen" id="screen-projecao" data-screen hidden>
+      <p class="screen-intro">Projeção até dezembro de <span id="projecaoAno"></span>, somando parcelas futuras já cadastradas e despesas fixas que você marcar como recorrentes.</p>
+      <div id="listaProjecao" class="lista-container"></div>
+    </section>
 
-  <!-- REGISTRAR VIEW -->
-  <div class="view active" id="view-registrar">
+  </main>
 
-    <div id="sessionBarWrap"></div>
-
-    <div class="entry-card">
-      <div class="field-row">
-        <div class="field exname">
-          <label>Exercício</label>
-          <input type="text" id="inpExercise" placeholder="Ex: Supino reto" autocomplete="off">
-          <div id="suggestWrap"></div>
-        </div>
-      </div>
-      <div class="field-row" style="margin-top:10px;">
-        <div class="field num">
-          <label>Carga (kg)</label>
-          <input type="number" id="inpLoad" placeholder="0" inputmode="decimal" step="0.5" min="0">
-        </div>
-        <div class="field num">
-          <label>Reps</label>
-          <input type="number" id="inpReps" placeholder="0" inputmode="numeric" min="0">
-        </div>
-        <div class="field num">
-          <label>Série Nº</label>
-          <input type="number" id="inpSetNum" placeholder="1" inputmode="numeric" min="1">
-        </div>
-      </div>
-      <button class="btn-add" id="btnAddSet">+ Registrar série</button>
-    </div>
-
-    <div class="section-label">
-      <span id="todaySectionLabel">Registrar</span>
-      <span id="todayVolume"></span>
-    </div>
-    <div id="todayLog"></div>
-  </div>
-
-  <!-- HISTÓRICO VIEW -->
-  <div class="view" id="view-historico">
-    <div id="historyListWrap">
-      <div class="history-toolbar">
-        <h2>Treinos</h2>
-        <button class="btn-trash" id="btnToggleDeleteMode">🗑</button>
-      </div>
-      <div id="historyLog"></div>
-    </div>
-    <div id="historyDetailWrap" style="display:none;">
-      <div class="day-detail-header">
-        <button class="btn-back" id="btnHistoryBack">←</button>
-        <div>
-          <div class="day-detail-title" id="historyDetailTitle"></div>
-          <div class="day-detail-vol" id="historyDetailVol"></div>
-        </div>
-      </div>
-      <div id="historyDetailLog"></div>
-    </div>
-  </div>
+  <!-- ===================== NAV ===================== -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-btn is-active" data-target="lancar">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span>Lançar</span>
+    </button>
+    <button class="nav-btn" data-target="historico">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span>Histórico</span>
+    </button>
+    <button class="nav-btn" data-target="resumo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span>Resumo</span>
+    </button>
+    <button class="nav-btn" data-target="parcelas">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2.2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2.2"/></svg>
+      <span>Parcelas</span>
+    </button>
+    <button class="nav-btn" data-target="projecao">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 17l4-5 4 3 5-7 3 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Projeção</span>
+    </button>
+  </nav>
 
 </div>
 
-<div class="delete-bar" id="deleteBar">
-  <span class="count" id="deleteCount">0 selecionado(s)</span>
-  <div>
-    <button class="btn-cancel-delete" id="btnCancelDelete">Cancelar</button>
-    <button class="btn-confirm-delete" id="btnConfirmDelete">Excluir</button>
+<!-- ===================== MODAL: EDITAR/EXCLUIR ===================== -->
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal-sheet" id="modalSheet">
+    <div class="modal-handle"></div>
+    <div id="modalConteudo"></div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
-<nav>
-  <button class="active" data-view="registrar">Registrar</button>
-  <button data-view="historico">Histórico</button>
-</nav>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-// ---------- Storage helpers ----------
-const STORE_KEY = 'sets';
-const SESSION_KEY = 'active_session';
-
-async function loadSets(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){ return []; }
-}
-async function saveSets(sets){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(sets)); }
-  catch(e){ console.error('Erro ao salvar', e); showToast('Erro ao salvar — armazenamento cheio?'); }
-}
-async function loadSession(){
-  try{
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
-}
-async function saveSession(s){
-  try{
-    if(s === null){ localStorage.removeItem(SESSION_KEY); }
-    else { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
-  }catch(e){ console.error('Erro sessão', e); }
-}
-
-// ---------- State ----------
-let allSets = [];
-let activeSession = null; // { startedAt: iso }
-let sessionTimerInterval = null;
-let lastLoggedExercise = ''; // tracks the most recently logged exercise name in this session, to know when to reset the set counter
-
-function todayStr(d=new Date()){
-  return d.toISOString().slice(0,10);
-}
-function fmtDateLabel(dateStr){
-  const d = new Date(dateStr + 'T00:00:00');
-  const days = ['dom','seg','ter','qua','qui','sex','sáb'];
-  const months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-}
-function fmtTime(iso){
-  const d = new Date(iso);
-  return d.toTimeString().slice(0,5);
-}
-function showToast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timeout);
-  t._timeout = setTimeout(()=> t.classList.remove('show'), 1400);
-}
-
-// ---------- Init ----------
-function migrateLegacySets(sets){
-  // sets created before sessions existed don't have a sessionId.
-  // Group them by date so they still show as one card per day, like before.
-  let changed = false;
-  sets.forEach(s=>{
-    if(!s.sessionId){
-      s.sessionId = 'legacy_' + s.date;
-      changed = true;
-    }
-  });
-  return changed;
-}
-
-async function init(){
-  document.getElementById('todayLabel').textContent = fmtDateLabel(todayStr());
-  allSets = await loadSets();
-  const migrated = migrateLegacySets(allSets);
-  if(migrated) await saveSets(allSets);
-  activeSession = await loadSession();
-  renderSessionBar();
-  renderToday();
-  renderSuggestions();
-  bindNav();
-  bindForm();
-  bindBackupMenu();
-  bindEditModal();
-  bindDeleteMode();
-  if(activeSession) startTimerTick();
-
-  // restore the last exercise logged in the active session, so the set
-  // counter behaves correctly even after a page reload mid-workout
-  if(activeSession){
-    const sessionSets = allSets.filter(s => s.sessionId === activeSession.id);
-    const last = sessionSets[sessionSets.length - 1];
-    if(last) lastLoggedExercise = last.exercise;
-  }
-}
-
-// ---------- Session bar ----------
-function renderSessionBar(){
-  const wrap = document.getElementById('sessionBarWrap');
-  if(activeSession){
-    wrap.innerHTML = `
-      <div class="session-bar">
-        <div>
-          <div class="label">Treino em andamento</div>
-          <div class="timer" id="sessionTimer">00:00</div>
-        </div>
-        <button class="btn-end" id="btnEndSession">Finalizar</button>
-      </div>
-    `;
-    document.getElementById('btnEndSession').onclick = endSession;
-    updateTimerDisplay();
-  } else {
-    wrap.innerHTML = `<button class="btn-start-session" id="btnStartSession">▸ Iniciar treino</button>`;
-    document.getElementById('btnStartSession').onclick = startSession;
-  }
-}
-async function startSession(){
-  activeSession = { id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), startedAt: new Date().toISOString() };
-  await saveSession(activeSession);
-  renderSessionBar();
-  startTimerTick();
-  renderToday();
-  showToast('Treino iniciado');
-}
-async function endSession(){
-  activeSession = null;
-  await saveSession(null);
-  clearInterval(sessionTimerInterval);
-  renderSessionBar();
-  renderToday();
-  // limpa o formulário para o próximo treino começar do zero
-  document.getElementById('inpExercise').value = '';
-  document.getElementById('inpLoad').value = '';
-  document.getElementById('inpReps').value = '';
-  document.getElementById('inpSetNum').value = '';
-  lastLoggedExercise = '';
-  hideSuggestions();
-  showToast('Treino finalizado — registro salvo no histórico');
-}
-function startTimerTick(){
-  clearInterval(sessionTimerInterval);
-  sessionTimerInterval = setInterval(updateTimerDisplay, 1000);
-}
-function updateTimerDisplay(){
-  if(!activeSession) return;
-  const el = document.getElementById('sessionTimer');
-  if(!el) return;
-  const diff = Math.floor((Date.now() - new Date(activeSession.startedAt).getTime())/1000);
-  const m = String(Math.floor(diff/60)).padStart(2,'0');
-  const s = String(diff%60).padStart(2,'0');
-  el.textContent = `${m}:${s}`;
-}
-
-// ---------- Suggestions (autocomplete dropdown) ----------
-function getKnownExerciseNames(){
-  // most recently used first, deduplicated
-  const seen = new Set();
-  const names = [];
-  for(let i = allSets.length - 1; i >= 0; i--){
-    const n = allSets[i].exercise;
-    const key = n.toLowerCase();
-    if(!seen.has(key)){ seen.add(key); names.push(n); }
-  }
-  return names;
-}
-function normalize(str){
-  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-function renderSuggestions(){
-  // kept for compatibility with callers after data changes; dropdown content
-  // is computed live on input, so this just clears any stale dropdown.
-  hideSuggestions();
-}
-function hideSuggestions(){
-  const wrap = document.getElementById('suggestWrap');
-  wrap.innerHTML = '';
-  wrap.classList.remove('open');
-}
-function showSuggestionsFor(query){
-  const wrap = document.getElementById('suggestWrap');
-  const q = normalize(query.trim());
-  const known = getKnownExerciseNames();
-
-  let matches;
-  if(q === ''){
-    matches = known.slice(0, 6); // recent exercises when field is empty/focused
-  } else {
-    matches = known.filter(n => normalize(n).includes(q)).slice(0, 6);
-  }
-
-  if(matches.length === 0){ hideSuggestions(); return; }
-
-  wrap.innerHTML = matches.map(n=>
-    `<div class="suggest-item" data-name="${escapeHtml(n)}">${escapeHtml(n)}</div>`
-  ).join('');
-  wrap.classList.add('open');
-
-  wrap.querySelectorAll('.suggest-item').forEach(item=>{
-    item.onclick = ()=>{
-      document.getElementById('inpExercise').value = item.dataset.name;
-      const nextSetNum = computeNextSetNum(item.dataset.name);
-      document.getElementById('inpSetNum').value = nextSetNum;
-      hideSuggestions();
-      document.getElementById('inpLoad').focus();
-    };
-  });
-}
-function computeNextSetNum(exerciseName){
-  if(!activeSession) return 1;
-  const inSession = allSets.filter(s=> s.sessionId===activeSession.id && s.exercise.toLowerCase()===exerciseName.toLowerCase());
-  return inSession.length + 1;
-}
-function escapeHtml(str){
-  return str.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-// ---------- Form / Add set ----------
-function bindForm(){
-  const inpExercise = document.getElementById('inpExercise');
-  inpExercise.addEventListener('input', ()=>{
-    showSuggestionsFor(inpExercise.value);
-  });
-  inpExercise.addEventListener('focus', ()=>{
-    showSuggestionsFor(inpExercise.value);
-  });
-  document.addEventListener('click', (e)=>{
-    if(e.target !== inpExercise && !e.target.closest('#suggestWrap')){
-      hideSuggestions();
-    }
-  });
-  inpExercise.addEventListener('blur', ()=>{
-    const name = inpExercise.value.trim();
-    if(name){
-      document.getElementById('inpSetNum').value = computeNextSetNum(name);
-    }
-  });
-
-  document.getElementById('btnAddSet').onclick = addSet;
-
-  // Enter key on reps field submits
-  document.getElementById('inpReps').addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter') addSet();
-  });
-}
-
-async function addSet(){
-  const exercise = document.getElementById('inpExercise').value.trim();
-  const load = document.getElementById('inpLoad').value;
-  const reps = document.getElementById('inpReps').value;
-  let setNum = document.getElementById('inpSetNum').value;
-
-  if(!exercise){ showToast('Informe o exercício'); document.getElementById('inpExercise').focus(); return; }
-  if(reps === ''){ showToast('Informe as repetições'); document.getElementById('inpReps').focus(); return; }
-
-  // safety net: if the exercise typed is different from the last one logged
-  // in this session, the set number must restart for this exercise,
-  // regardless of whatever was left in the field (e.g. user didn't blur).
-  if(!setNum || exercise.toLowerCase() !== lastLoggedExercise.toLowerCase()){
-    setNum = computeNextSetNum(exercise);
-  }
-
-  // auto-start a session if the person just starts logging without tapping "Iniciar treino"
-  if(!activeSession){
-    activeSession = { id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), startedAt: new Date().toISOString() };
-    await saveSession(activeSession);
-    renderSessionBar();
-    startTimerTick();
-  }
-
-  const entry = {
-    id: 'set_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    date: todayStr(),
-    time: new Date().toISOString(),
-    exercise,
-    load: load === '' ? null : parseFloat(load),
-    reps: parseInt(reps,10),
-    setNum: parseInt(setNum,10),
-    sessionId: activeSession.id
-  };
-
-  allSets.push(entry);
-  await saveSets(allSets);
-  lastLoggedExercise = exercise;
-
-  // prep for next set: same exercise, increment set number, clear reps/load? keep load (often same), clear nothing drastic
-  document.getElementById('inpSetNum').value = entry.setNum + 1;
-  document.getElementById('inpReps').value = '';
-  document.getElementById('inpReps').focus();
-
-  renderToday();
-  renderSuggestions();
-  showToast(`Série ${entry.setNum} registrada`);
-}
-
-async function deleteSet(id){
-  allSets = allSets.filter(s=>s.id!==id);
-  await saveSets(allSets);
-  renderToday();
-  renderHistory();
-}
-
-// ---------- Edit modal ----------
-let editingId = null;
-
-function openEditModal(id){
-  const s = allSets.find(x=>x.id===id);
-  if(!s) return;
-  editingId = id;
-
-  const d = new Date(s.time);
-  const dateStr = s.date; // already YYYY-MM-DD
-  const timeStr = d.toTimeString().slice(0,5); // HH:MM local
-
-  document.getElementById('editExercise').value = s.exercise;
-  document.getElementById('editDate').value = dateStr;
-  document.getElementById('editTime').value = timeStr;
-  document.getElementById('editLoad').value = s.load != null ? s.load : '';
-  document.getElementById('editReps').value = s.reps;
-  document.getElementById('editSetNum').value = s.setNum;
-
-  document.getElementById('editMenu').classList.add('show');
-}
-
-function closeEditModal(){
-  editingId = null;
-  document.getElementById('editMenu').classList.remove('show');
-}
-
-async function saveEditModal(){
-  if(!editingId) return;
-  const s = allSets.find(x=>x.id===editingId);
-  if(!s) return;
-
-  const exercise = document.getElementById('editExercise').value.trim();
-  const dateVal = document.getElementById('editDate').value;
-  const timeVal = document.getElementById('editTime').value;
-  const load = document.getElementById('editLoad').value;
-  const reps = document.getElementById('editReps').value;
-  const setNum = document.getElementById('editSetNum').value;
-
-  if(!exercise){ showToast('Informe o exercício'); return; }
-  if(reps === ''){ showToast('Informe as repetições'); return; }
-  if(!dateVal || !timeVal){ showToast('Informe data e horário'); return; }
-
-  const sessionId = s.sessionId;
-
-  // build new ISO datetime from date+time (local time)
-  const newDateTime = new Date(`${dateVal}T${timeVal}:00`);
-
-  s.exercise = exercise;
-  s.date = dateVal;
-  s.time = newDateTime.toISOString();
-  s.load = load === '' ? null : parseFloat(load);
-  s.reps = parseInt(reps,10);
-  s.setNum = parseInt(setNum,10) || 1;
-
-  await saveSets(allSets);
-  closeEditModal();
-  renderToday();
-  renderSuggestions();
-
-  // editing never changes which session a set belongs to, so we can
-  // always stay in the same session's detail view after saving
-  const wasInDetail = document.getElementById('historyDetailWrap').style.display !== 'none';
-  if(wasInDetail){
-    const activeId = activeSession ? activeSession.id : null;
-    const refreshedPast = activeId ? allSets.filter(x => x.sessionId !== activeId) : allSets.slice();
-    openHistoryDetail(sessionId, refreshedPast);
-  } else {
-    renderHistory();
-  }
-  showToast('Série atualizada');
-}
-
-function bindEditModal(){
-  document.getElementById('btnEditCancel').onclick = closeEditModal;
-  document.getElementById('btnEditSave').onclick = saveEditModal;
-  const menu = document.getElementById('editMenu');
-  menu.addEventListener('click', (e)=>{ if(e.target === menu) closeEditModal(); });
-}
-
-// ---------- Render Today ----------
-function renderToday(){
-  const log = document.getElementById('todayLog');
-  const volEl = document.getElementById('todayVolume');
-  const sectionLabel = document.getElementById('todaySectionLabel');
-
-  if(!activeSession){
-    log.innerHTML = `<div class="empty-state">Nenhum treino em andamento.<br>Toque em "Iniciar treino" acima para começar a registrar.</div>`;
-    volEl.textContent = '';
-    if(sectionLabel) sectionLabel.textContent = 'Registrar';
-    return;
-  }
-
-  const todays = allSets.filter(s=> s.sessionId === activeSession.id);
-  if(sectionLabel) sectionLabel.textContent = 'Treino atual';
-
-  if(todays.length === 0){
-    log.innerHTML = `<div class="empty-state">Nenhuma série registrada ainda.<br>Adicione a primeira acima.</div>`;
-    volEl.textContent = '';
-    return;
-  }
-
-  // group by exercise, preserve order of first appearance
-  const order = [];
-  const groups = {};
-  todays.forEach(s=>{
-    if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
-    groups[s.exercise].push(s);
-  });
-
-  let totalVolume = 0;
-  todays.forEach(s=>{ if(s.load) totalVolume += s.load * s.reps; });
-  volEl.textContent = totalVolume > 0 ? `vol. total ${totalVolume.toLocaleString('pt-BR')} kg` : '';
-
-  log.innerHTML = order.map(exName=>{
-    const sets = groups[exName].sort((a,b)=>a.setNum-b.setNum);
-    const exVolume = sets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-    return `
-      <div class="exercise-group">
-        <div class="exercise-name">
-          <span>${escapeHtml(exName)}</span>
-          <span class="vol">${exVolume>0 ? exVolume.toLocaleString('pt-BR')+' kg vol.' : ''}</span>
-        </div>
-        ${sets.map(s=>`
-          <div class="set-row">
-            <div class="set-num">${s.setNum}</div>
-            <div class="set-data">
-              <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
-              <span><b>${s.reps}</b> reps</span>
-              <span class="set-time">${fmtTime(s.time)}</span>
-            </div>
-            <div class="row-actions">
-              <button class="edit-btn" data-id="${s.id}">✎</button>
-              <button class="del-btn" data-id="${s.id}">×</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
-
-  log.querySelectorAll('.del-btn').forEach(btn=>{
-    btn.onclick = ()=> deleteSet(btn.dataset.id);
-  });
-  log.querySelectorAll('.edit-btn').forEach(btn=>{
-    btn.onclick = ()=> openEditModal(btn.dataset.id);
-  });
-}
-
-// ---------- Render History ----------
-let deleteMode = false;
-let selectedSessionIds = new Set();
-
-function renderHistory(){
-  const log = document.getElementById('historyLog');
-  const activeId = activeSession ? activeSession.id : null;
-  // Shows every set that doesn't belong to the currently active session
-  // (those live in "Registrar" instead). When there's no active session,
-  // everything shows here, including legacy sets without a sessionId.
-  const pastSets = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
-
-  // always return to the list view when re-rendering history from scratch
-  showHistoryList();
-  exitDeleteMode();
-
-  if(pastSets.length === 0){
-    log.innerHTML = `<div class="empty-state">Sem treinos anteriores registrados.</div>`;
-    return;
-  }
-
-  // group by sessionId so each "iniciar -> finalizar" run is its own card,
-  // even if there were multiple workouts on the same day
-  const sessionOrder = [];
-  const bySession = {};
-  pastSets.forEach(s=>{
-    if(!bySession[s.sessionId]){ bySession[s.sessionId] = []; sessionOrder.push(s.sessionId); }
-    bySession[s.sessionId].push(s);
-  });
-
-  // sort sessions by their earliest set time, most recent first
-  sessionOrder.sort((a,b)=>{
-    const aTime = Math.min(...bySession[a].map(s=> new Date(s.time).getTime()));
-    const bTime = Math.min(...bySession[b].map(s=> new Date(s.time).getTime()));
-    return bTime - aTime;
-  });
-
-  log.innerHTML = sessionOrder.map(sid=>{
-    const sessionSets = bySession[sid];
-    const date = sessionSets[0].date;
-    const sessionVolume = sessionSets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-    const exerciseCount = new Set(sessionSets.map(s=>s.exercise)).size;
-    const setCount = sessionSets.length;
-    const earliestTime = sessionSets.reduce((min,s)=> !min || s.time < min ? s.time : min, null);
-
-    return `
-      <div class="day-card" data-session-id="${sid}">
-        <div class="day-card-checkbox" style="display:${deleteMode ? 'flex' : 'none'};">✓</div>
-        <div class="day-card-left">
-          <div class="day-card-date">${fmtDateLabel(date)} <span class="day-card-time">${fmtTime(earliestTime)}</span></div>
-          <div class="day-card-meta">${exerciseCount} exercício${exerciseCount!==1?'s':''} · ${setCount} série${setCount!==1?'s':''}</div>
-        </div>
-        <div class="day-card-right">
-          ${sessionVolume>0 ? `<span class="day-card-vol">${sessionVolume.toLocaleString('pt-BR')} kg</span>` : ''}
-          <span class="day-card-arrow" style="display:${deleteMode ? 'none' : 'inline'};">›</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  log.querySelectorAll('.day-card').forEach(card=>{
-    card.onclick = ()=>{
-      if(deleteMode){
-        toggleSessionSelection(card.dataset.sessionId, card);
-      } else {
-        openHistoryDetail(card.dataset.sessionId, pastSets);
-      }
-    };
-  });
-}
-
-function toggleSessionSelection(sid, cardEl){
-  if(selectedSessionIds.has(sid)){
-    selectedSessionIds.delete(sid);
-    cardEl.classList.remove('selected');
-  } else {
-    selectedSessionIds.add(sid);
-    cardEl.classList.add('selected');
-  }
-  updateDeleteBar();
-}
-
-function updateDeleteBar(){
-  const bar = document.getElementById('deleteBar');
-  const count = selectedSessionIds.size;
-  document.getElementById('deleteCount').textContent = `${count} treino${count!==1?'s':''} selecionado${count!==1?'s':''}`;
-  bar.classList.toggle('show', deleteMode && count > 0);
-}
-
-function enterDeleteMode(){
-  deleteMode = true;
-  selectedSessionIds = new Set();
-  document.getElementById('btnToggleDeleteMode').classList.add('active');
-  document.querySelectorAll('.day-card-checkbox').forEach(el=> el.style.display = 'flex');
-  document.querySelectorAll('.day-card-arrow').forEach(el=> el.style.display = 'none');
-  updateDeleteBar();
-}
-
-function exitDeleteMode(){
-  deleteMode = false;
-  selectedSessionIds = new Set();
-  const btn = document.getElementById('btnToggleDeleteMode');
-  if(btn) btn.classList.remove('active');
-  document.querySelectorAll('.day-card').forEach(el=> el.classList.remove('selected'));
-  const bar = document.getElementById('deleteBar');
-  if(bar) bar.classList.remove('show');
-}
-
-async function deleteSelectedDays(){
-  if(selectedSessionIds.size === 0) return;
-  allSets = allSets.filter(s => !selectedSessionIds.has(s.sessionId));
-  await saveSets(allSets);
-  const n = selectedSessionIds.size;
-  renderHistory();
-  showToast(`${n} treino${n!==1?'s':''} excluído${n!==1?'s':''}`);
-}
-
-function bindDeleteMode(){
-  document.getElementById('btnToggleDeleteMode').onclick = ()=>{
-    if(deleteMode){
-      exitDeleteMode();
-      renderHistory();
-    } else {
-      enterDeleteMode();
-    }
-  };
-  document.getElementById('btnCancelDelete').onclick = ()=>{
-    exitDeleteMode();
-    renderHistory();
-  };
-  document.getElementById('btnConfirmDelete').onclick = deleteSelectedDays;
-}
-
-function showHistoryList(){
-  document.getElementById('historyListWrap').style.display = '';
-  document.getElementById('historyDetailWrap').style.display = 'none';
-}
-
-function openHistoryDetail(sessionId, pastSets){
-  const sessionSets = pastSets.filter(s=>s.sessionId===sessionId);
-  if(sessionSets.length === 0) return;
-  const date = sessionSets[0].date;
-  const sessionVolume = sessionSets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-
-  document.getElementById('historyDetailTitle').textContent = fmtDateLabel(date);
-  document.getElementById('historyDetailVol').textContent = sessionVolume>0 ? `vol. total ${sessionVolume.toLocaleString('pt-BR')} kg` : '';
-
-  const order = [];
-  const groups = {};
-  sessionSets.forEach(s=>{
-    if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
-    groups[s.exercise].push(s);
-  });
-
-  const detailLog = document.getElementById('historyDetailLog');
-  detailLog.innerHTML = order.map(exName=>{
-    const sets = groups[exName].sort((a,b)=>a.setNum-b.setNum);
-    const exVolume = sets.reduce((acc,s)=> acc + (s.load? s.load*s.reps : 0), 0);
-    return `
-      <div class="exercise-group">
-        <div class="exercise-name">
-          <span>${escapeHtml(exName)}</span>
-          <span class="vol">${exVolume>0 ? exVolume.toLocaleString('pt-BR')+' kg vol.' : ''}</span>
-        </div>
-        ${sets.map(s=>`
-          <div class="set-row">
-            <div class="set-num">${s.setNum}</div>
-            <div class="set-data">
-              <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
-              <span><b>${s.reps}</b> reps</span>
-              <span class="set-time">${fmtTime(s.time)}</span>
-            </div>
-            <div class="row-actions">
-              <button class="edit-btn" data-id="${s.id}">✎</button>
-              <button class="del-btn" data-id="${s.id}">×</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
-
-  detailLog.querySelectorAll('.del-btn').forEach(btn=>{
-    btn.onclick = async ()=>{
-      await deleteSet(btn.dataset.id);
-      // refresh detail view in place; if session is now empty, go back to list
-      const stillThere = allSets.some(s=>s.sessionId===sessionId);
-      if(stillThere){
-        const activeId = activeSession ? activeSession.id : null;
-        const refreshedPast = activeId ? allSets.filter(s => s.sessionId !== activeId) : allSets.slice();
-        openHistoryDetail(sessionId, refreshedPast);
-      } else {
-        renderHistory();
-      }
-    };
-  });
-  detailLog.querySelectorAll('.edit-btn').forEach(btn=>{
-    btn.onclick = ()=> openEditModal(btn.dataset.id);
-  });
-
-  document.getElementById('historyListWrap').style.display = 'none';
-  document.getElementById('historyDetailWrap').style.display = '';
-}
-
-// ---------- Nav ----------
-function bindNav(){
-  document.querySelectorAll('nav button').forEach(btn=>{
-    btn.onclick = ()=>{
-      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('view-' + btn.dataset.view).classList.add('active');
-      if(btn.dataset.view === 'historico') renderHistory();
-    };
-  });
-  document.getElementById('btnHistoryBack').onclick = showHistoryList;
-}
-
-// ---------- Backup menu ----------
-function bindBackupMenu(){
-  const menu = document.getElementById('backupMenu');
-  document.getElementById('btnBackupOpen').onclick = ()=>{
-    populateDateSelect();
-    menu.classList.add('show');
-  };
-  document.getElementById('btnBackupClose').onclick = ()=> menu.classList.remove('show');
-  menu.addEventListener('click', (e)=>{ if(e.target === menu) menu.classList.remove('show'); });
-
-  document.getElementById('optPdf').addEventListener('click', (e)=>{
-    if(e.target.tagName === 'SELECT') return; // don't trigger on select interaction
-    const date = document.getElementById('pdfDateSelect').value;
-    exportDayPdf(date);
-    menu.classList.remove('show');
-  });
-  document.getElementById('optPdfAll').onclick = ()=>{
-    exportAllPdf();
-    menu.classList.remove('show');
-  };
-  document.getElementById('optJson').onclick = ()=>{
-    exportJson();
-    menu.classList.remove('show');
-  };
-}
-
-function populateDateSelect(){
-  const sel = document.getElementById('pdfDateSelect');
-  const dates = [...new Set(allSets.map(s=>s.date))].sort((a,b)=> b.localeCompare(a));
-  if(dates.length === 0){
-    sel.innerHTML = `<option value="">sem dados</option>`;
-    return;
-  }
-  const today = todayStr();
-  sel.innerHTML = dates.map(d=>{
-    const label = d === today ? 'Hoje' : fmtDateLabel(d);
-    return `<option value="${d}">${label}</option>`;
-  }).join('');
-}
-
-function groupSetsByExercise(sets){
-  const order = [];
-  const groups = {};
-  sets.forEach(s=>{
-    if(!groups[s.exercise]){ groups[s.exercise]=[]; order.push(s.exercise); }
-    groups[s.exercise].push(s);
-  });
-  order.forEach(ex => groups[ex].sort((a,b)=>a.setNum-b.setNum));
-  return { order, groups };
-}
-
-function drawDayToPdf(doc, date, sets, startY){
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 15;
-  let y = startY;
-
-  const dayVolume = sets.reduce((acc,s)=> acc + (s.load ? s.load*s.reps : 0), 0);
-
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(14);
-  doc.setTextColor(20,20,15);
-  doc.text(fmtDateLabel(date), marginX, y);
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(110,110,100);
-  doc.text(dayVolume > 0 ? `Volume total: ${dayVolume.toLocaleString('pt-BR')} kg` : '', pageWidth - marginX, y, { align:'right' });
-
-  y += 4;
-  doc.setDrawColor(210,210,200);
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 8;
-
-  const { order, groups } = groupSetsByExercise(sets);
-
-  order.forEach(exName=>{
-    if(y > 270){ doc.addPage(); y = 20; }
-
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(12);
-    doc.setTextColor(20,20,15);
-    doc.text(exName, marginX, y);
-    y += 6;
-
-    const exSets = groups[exName];
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10.5);
-    doc.setTextColor(60,60,55);
-
-    exSets.forEach(s=>{
-      if(y > 280){ doc.addPage(); y = 20; }
-      const loadTxt = s.load != null ? `${s.load} kg` : 'peso corporal';
-      const line = `Série ${s.setNum}   —   ${loadTxt}   ×   ${s.reps} reps`;
-      doc.text(line, marginX + 4, y);
-      y += 5.5;
-    });
-    y += 4;
-  });
-
-  return y;
-}
-
-function exportDayPdf(date){
-  if(!date){ showToast('Sem dados para exportar'); return; }
-  const sets = allSets.filter(s=>s.date===date);
-  if(sets.length === 0){ showToast('Sem dados para esse dia'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18);
-  doc.setTextColor(20,20,15);
-  doc.text('Registro de treino', 15, 18);
-
-  drawDayToPdf(doc, date, sets, 30);
-
-  doc.save(`treino_${date}.pdf`);
-  showToast('PDF gerado');
-}
-
-function exportAllPdf(){
-  if(allSets.length === 0){ showToast('Sem dados para exportar'); return; }
-  const dates = [...new Set(allSets.map(s=>s.date))].sort((a,b)=> b.localeCompare(a));
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18);
-  doc.setTextColor(20,20,15);
-  doc.text('Histórico de treinos', 15, 18);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(110,110,100);
-  doc.text(`${dates.length} dia(s) registrado(s)`, 15, 25);
-
-  let y = 35;
-  dates.forEach((date, idx)=>{
-    if(idx > 0){ doc.addPage(); y = 20; }
-    const sets = allSets.filter(s=>s.date===date);
-    y = drawDayToPdf(doc, date, sets, y);
-  });
-
-  doc.save(`treino_historico_completo.pdf`);
-  showToast('PDF gerado');
-}
-
-function exportJson(){
-  if(allSets.length === 0){ showToast('Sem dados para exportar'); return; }
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    sets: allSets
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `treino_backup_${todayStr()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Backup JSON gerado');
-}
-
-// ---------- Service Worker (PWA offline support) ----------
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./service-worker.js').catch(e=>{
-      console.log('SW registration failed', e);
-    });
-  });
-}
-
-init();
-</script>
+<!-- ===================== MODAL: FILTRO DE MÊS (histórico) ===================== -->
+<div class="modal-overlay" id="modalMesOverlay" hidden>
+  <div class="modal-sheet" id="modalMesSheet">
+    <div class="modal-handle"></div>
+    <h3 class="modal-title">Filtrar por mês</h3>
+    <div class="month-grid" id="modalMesGrid"></div>
+    <button class="btn-secondary" id="btnLimparFiltroMes">Ver todos os períodos</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: MENU (cabeçalho) ===================== -->
+<div class="modal-overlay" id="modalMenuOverlay" hidden>
+  <div class="modal-sheet" id="modalMenuSheet">
+    <div class="modal-handle"></div>
+    <button class="menu-item" id="menuExportar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Exportar meus dados (backup)
+    </button>
+    <button class="menu-item" id="menuImportar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21V9m0 0l-4 4m4-4l4 4M4 3h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Importar backup
+    </button>
+    <input type="file" id="inputImportar" accept="application/json" hidden />
+    <button class="menu-item" id="menuGerenciarCategorias">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h7M4 12h7M4 18h7M17 5l3 3-3 3M20 8h-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Gerenciar categorias
+    </button>
+    <button class="menu-item menu-item-danger" id="menuLimparTudo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2m1 0l-1 14H8L7 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Limpar todos os dados
+    </button>
+  </div>
+</div>
+
+<!-- ===================== MODAL: GERENCIAR CATEGORIAS ===================== -->
+<div class="modal-overlay" id="modalCategoriasOverlay" hidden>
+  <div class="modal-sheet" id="modalCategoriasSheet">
+    <div class="modal-handle"></div>
+    <h3 class="modal-title">Gerenciar categorias</h3>
+
+    <div class="segmented" id="categoriasTipoSegmented">
+      <button type="button" class="segmented-btn is-active" data-tipo="saida">Saída</button>
+      <button type="button" class="segmented-btn" data-tipo="entrada">Entrada</button>
+    </div>
+
+    <div id="listaCategoriasGerenciar" class="categoria-gerenciar-list"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
