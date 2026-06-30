@@ -175,6 +175,11 @@
     padding: 2px 2px 8px; display:flex; justify-content:space-between; align-items:baseline;
   }
   .exercise-name .vol{font-size:11px; font-family: 'Courier New', monospace; color: var(--accent-dim); font-weight:400;}
+  .rename-btn{
+    background:none; border:none; color: var(--ink-dim); font-size:13px;
+    cursor:pointer; padding: 0 4px; vertical-align: middle; line-height:1;
+  }
+  .rename-btn:active{ color: var(--ink); }
   .set-row{
     display:flex; align-items:center; gap:10px;
     background: var(--bg-card); border:1px solid var(--line); border-radius:10px;
@@ -804,6 +809,32 @@ function closeEditModal(){
   document.getElementById('editMenu').classList.remove('show');
 }
 
+async function openRenameExercise(exerciseName){
+  const newName = window.prompt(`Renomear exercício:\n"${exerciseName}"\n\nNovo nome:`, exerciseName);
+  if(!newName || newName.trim() === '' || newName.trim() === exerciseName) return;
+  const trimmed = newName.trim();
+
+  // rename all sets of this exercise in the active session
+  const sessionId = activeSession ? activeSession.id : null;
+  let changed = false;
+  allSets.forEach(s=>{
+    const inScope = sessionId ? s.sessionId === sessionId : s.date === todayStr();
+    if(inScope && s.exercise === exerciseName){
+      s.exercise = trimmed;
+      changed = true;
+    }
+  });
+
+  if(changed){
+    // also update lastLoggedExercise if it was the renamed one
+    if(lastLoggedExercise === exerciseName) lastLoggedExercise = trimmed;
+    await saveSets(allSets);
+    renderToday();
+    renderSuggestions();
+    showToast('Exercício renomeado');
+  }
+}
+
 async function saveEditModal(){
   if(!editingId) return;
   const s = allSets.find(x=>x.id===editingId);
@@ -897,7 +928,7 @@ function renderToday(){
     return `
       <div class="exercise-group">
         <div class="exercise-name">
-          <span>${escapeHtml(exName)}</span>
+          <span>${escapeHtml(exName)} <button class="rename-btn" data-exercise="${escapeHtml(exName)}" title="Renomear exercício">✎</button></span>
           <span class="vol">${exVolume>0 ? exVolume.toLocaleString('pt-BR')+' kg vol.' : ''}</span>
         </div>
         ${sets.map(s=>`
@@ -906,7 +937,6 @@ function renderToday(){
             <div class="set-data">
               <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
               <span><b>${s.reps}</b> reps</span>
-              <span class="set-time">${fmtTime(s.time)}</span>
             </div>
             <div class="row-actions">
               <button class="edit-btn" data-id="${s.id}">✎</button>
@@ -923,6 +953,9 @@ function renderToday(){
   });
   log.querySelectorAll('.edit-btn').forEach(btn=>{
     btn.onclick = ()=> openEditModal(btn.dataset.id);
+  });
+  log.querySelectorAll('.rename-btn').forEach(btn=>{
+    btn.onclick = ()=> openRenameExercise(btn.dataset.exercise);
   });
 }
 
@@ -1096,7 +1129,6 @@ function openHistoryDetail(sessionId, pastSets){
             <div class="set-data">
               <span>${s.load!=null ? `<b>${s.load}</b> kg` : '<span style="color:var(--ink-dim)">peso corp.</span>'}</span>
               <span><b>${s.reps}</b> reps</span>
-              <span class="set-time">${fmtTime(s.time)}</span>
             </div>
             <div class="row-actions">
               <button class="edit-btn" data-id="${s.id}">✎</button>
